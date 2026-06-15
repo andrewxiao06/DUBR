@@ -8,6 +8,60 @@ the v1 product release. The foundational engine + algorithm spec lives in
 
 ---
 
+## 🎯 Current focus — deployment + mobile (June 2026)
+
+The full app (engine, API, validation flow, web UI) is built. The single
+universal-rating pivot shipped (see `[[single-rating-model]]` / CLAUDE.md).
+What's left is **getting it in front of real users** — and since DUBR's
+consumers play on their phones, **the native mobile app is the priority**,
+with the web app as a secondary surface.
+
+### Deployment status
+- ✅ Backend **live on EC2** — `docker-compose.prod.yml` stack (Postgres +
+  Redis + FastAPI + Caddy) up; all migrations applied through
+  `c4d5e6f7a8b9`. Reachable over **plain HTTP at the EC2 IP** (Caddy `:80`
+  fallback). `/health` returns ok from the public internet.
+- ✅ Web frontend on Vercel, but still **mock mode**
+  (`NEXT_PUBLIC_USE_MOCKS=1`) — not yet wired to the live API.
+- ⬜ No HTTPS yet (no domain). This blocks both surfaces: browsers block
+  HTTPS→HTTP (mixed content); iOS (ATS) + Android (cleartext) block
+  plain-HTTP API calls by default.
+
+### Roadmap (strict order)
+
+**1. Free HTTPS foundation** ⬜ — *Andrew drives the AWS/DNS parts; Claude hints (see CLAUDE.md).*
+   - **Elastic IP** on the EC2 instance (free while attached) so the public
+     address is stable — without it, a stop/start changes the IP and breaks
+     DNS + TLS.
+   - **DuckDNS** free subdomain (e.g. `dubr.duckdns.org`) → A record to the
+     Elastic IP. **No paid domain** — this is a hard constraint.
+   - Set `API_DOMAIN=dubr.duckdns.org` in `.env.prod`, flip `deploy/Caddyfile`
+     back to the `{$API_DOMAIN}` block (re-comment `:80`), re-up. Caddy
+     auto-issues a Let's Encrypt cert. Result: `https://dubr.duckdns.org`.
+   - This one task unblocks **both** web and mobile.
+
+**2. Finish the web app** ⬜
+   - Vercel env: `NEXT_PUBLIC_API_BASE_URL=https://dubr.duckdns.org`,
+     `NEXT_PUBLIC_USE_MOCKS=0`, Clerk keys.
+   - Add the Vercel origin to `BRS_CORS_ORIGINS` **and**
+     `CLERK_AUTHORIZED_PARTIES` in `.env.prod`, re-up so CORS + azp accept it.
+   - Verify real data end-to-end (the account-switch cache fix `a0ecf15` only
+     shows its effect once off mocks).
+
+**3. Mobile app — Expo / React Native** ⬜ **(priority)**
+   - **Reuses the FastAPI backend 100%** — it's a REST API; the deploy work
+     above is the shared foundation. Also reuses TS types, Zod schemas, and
+     the API-client/business logic; the **UI is rebuilt** in React Native
+     (native components, not HTML/CSS).
+   - Expo handles dev-on-device (Expo Go / dev builds) and store build/signing.
+   - Auth via **Clerk Expo SDK** (`@clerk/clerk-expo`), same instance as web.
+   - Native HTTP note: both stores block cleartext, so the HTTPS API from
+     step 1 is required, not optional.
+   - **Store publishing fees** (deferred until ready to submit; build+test is
+     free): Apple Developer **$99/yr**, Google Play **$25 one-time**.
+
+---
+
 ## V1 product requirements
 
 1. **Email-based profiles** — users sign up with an email; their player record

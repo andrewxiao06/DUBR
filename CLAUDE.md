@@ -83,16 +83,23 @@ badminton_rating/
 - Higher number = better player (same direction as DUPR)
 - Internally computed on Glicko-2 scale, then mapped to 2.0–8.0 for display
 
-### Tier Labels
+### Tier Labels (June 2026 — casual scale 1.0–5.0)
 
-| Rating | Tier | Sub-tiers |
+Casual play is capped at **5.0 = Diamond** (competitive above 5.0 comes later).
+Each tier spans 1.0 and is split into **5 sub-divisions of 0.2**.
+
+| Rating | Tier | Example sub-tiers |
 |---|---|---|
-| 2.0 – 3.0 | Bronze | Bronze I, II, III |
-| 3.0 – 4.0 | Silver | Silver I, II, III |
-| 4.0 – 5.0 | Gold | Gold I, II, III |
-| 5.0 – 6.0 | Platinum | Platinum I, II, III |
-| 6.0 – 7.0 | Diamond | Diamond I, II, III |
-| 7.0 – 8.0 | Master | Master I, II, III |
+| 1.0 – 1.99 | Bronze | 1.0=Bronze 1, 1.2=Bronze 2 … 1.8=Bronze 5 |
+| 2.0 – 2.99 | Silver | 2.0=Silver 1 … 2.4=Silver 3 … 2.8=Silver 5 |
+| 3.0 – 3.99 | Gold | 3.0=Gold 1 … 3.8=Gold 5 |
+| 4.0 – 4.99 | Platinum | 4.0=Platinum 1 … 4.8=Platinum 5 |
+| 5.0 | Diamond | 5.0=Diamond 1 (casual cap) |
+| 6.0 + | Master | reserved for future competitive |
+
+Display floor is **1.0** (`DISPLAY_FLOOR`); the internal→display slope/offset is
+unchanged, so existing ratings keep their numbers — only the tier *labels* and
+the reachable floor/cap changed.
 
 ---
 

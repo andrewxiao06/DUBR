@@ -33,8 +33,9 @@ RD_MAX = 350.0
 TAU = 0.5             # system constant — controls max volatility change
 DECAY_PER_MONTH = 15  # RD points added per month of inactivity
 
-DISPLAY_MIN = 2.0
-DISPLAY_MAX = 8.0
+DISPLAY_MIN = 2.0    # scale offset (internal r=1000 → display 2.0); unchanged
+DISPLAY_FLOOR = 1.0  # lowest displayable rating (Bronze 1); below this clamps
+DISPLAY_MAX = 8.0    # hard ceiling; casual is per-player capped at 5.0
 
 
 # ---------------------------------------------------------------------------
@@ -98,9 +99,15 @@ def from_phi(phi: float) -> float:
 
 
 def to_display_rating(r: float) -> float:
-    """Map internal Glicko r (roughly 1000–2000) to 2.0–8.0."""
+    """Map internal Glicko r to the display scale.
+
+    Keeps the original slope/offset so existing ratings don't shift, but the
+    *floor* is 1.0 (DISPLAY_FLOOR) so Bronze (1.0–1.99) is reachable. Casual
+    play is capped per-player by the ceiling (5.0); DISPLAY_MAX leaves
+    headroom for a future competitive tier.
+    """
     display = DISPLAY_MIN + (r - 1000) / 166.67
-    return round(max(DISPLAY_MIN, min(DISPLAY_MAX, display)), 3)
+    return round(max(DISPLAY_FLOOR, min(DISPLAY_MAX, display)), 3)
 
 
 def from_display_rating(display: float) -> float:
@@ -108,25 +115,31 @@ def from_display_rating(display: float) -> float:
     return (display - DISPLAY_MIN) * 166.67 + 1000
 
 
+# Tier bands keyed by the integer part of the display rating. Each tier spans
+# 1.0 and is split into 5 sub-divisions of 0.2 (e.g. 1.0=Bronze 1, 1.2=Bronze
+# 2 … 1.8=Bronze 5, 2.0=Silver 1). Master (6+) is reserved for a future
+# competitive tier above the 5.0 casual cap.
+_TIER_NAMES = {
+    1: "Bronze",
+    2: "Silver",
+    3: "Gold",
+    4: "Platinum",
+    5: "Diamond",
+    6: "Master",
+}
+
+
 def get_tier(display: float) -> str:
-    if display < 3.0:
-        sub = int((display - 2.0) / (1.0 / 3)) + 1
-        return f"Bronze {['I', 'II', 'III'][min(sub - 1, 2)]}"
-    elif display < 4.0:
-        sub = int((display - 3.0) / (1.0 / 3)) + 1
-        return f"Silver {['I', 'II', 'III'][min(sub - 1, 2)]}"
-    elif display < 5.0:
-        sub = int((display - 4.0) / (1.0 / 3)) + 1
-        return f"Gold {['I', 'II', 'III'][min(sub - 1, 2)]}"
-    elif display < 6.0:
-        sub = int((display - 5.0) / (1.0 / 3)) + 1
-        return f"Platinum {['I', 'II', 'III'][min(sub - 1, 2)]}"
-    elif display < 7.0:
-        sub = int((display - 6.0) / (1.0 / 3)) + 1
-        return f"Diamond {['I', 'II', 'III'][min(sub - 1, 2)]}"
-    else:
-        sub = int((display - 7.0) / (1.0 / 3)) + 1
-        return f"Master {['I', 'II', 'III'][min(sub - 1, 2)]}"
+    band = int(display)
+    name = _TIER_NAMES.get(band)
+    if name is None:
+        # Below the floor → Bronze 1; above the top band → Master 5.
+        if band < 1:
+            return "Bronze 1"
+        return "Master 5"
+    # +1e-6 absorbs float error so 1.2 → sub 2 (not 1), 2.4 → Silver 3, etc.
+    sub = min(5, max(1, int((display - band) / 0.2 + 1e-6) + 1))
+    return f"{name} {sub}"
 
 
 # ---------------------------------------------------------------------------
